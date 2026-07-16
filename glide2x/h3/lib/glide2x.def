@@ -1,0 +1,265 @@
+EXPORTS
+    ConvertAndDownloadRle = ConvertAndDownloadRle@64 @1
+    ConvertAndDownloadRle@64 @2
+    grAADrawLine = grAADrawLine@8 @3
+    grAADrawLine@8 @4
+    grAADrawPoint = grAADrawPoint@4 @5
+    grAADrawPoint@4 @6
+    grAADrawPolygon = grAADrawPolygon@12 @7
+    grAADrawPolygon@12 @8
+    grAADrawPolygonVertexList = grAADrawPolygonVertexList@8 @9
+    grAADrawPolygonVertexList@8 @10
+    grAADrawTriangle = grAADrawTriangle@24 @11
+    grAADrawTriangle@24 @12
+    grAlphaBlendFunction = grAlphaBlendFunction@16 @13
+    grAlphaBlendFunction@16 @14
+    grAlphaCombine = grAlphaCombine@20 @15
+    grAlphaCombine@20 @16
+    grAlphaControlsITRGBLighting = grAlphaControlsITRGBLighting@4 @17
+    grAlphaControlsITRGBLighting@4 @18
+    grAlphaTestFunction = grAlphaTestFunction@4 @19
+    grAlphaTestFunction@4 @20
+    grAlphaTestReferenceValue = grAlphaTestReferenceValue@4 @21
+    grAlphaTestReferenceValue@4 @22
+    grBufferClear = grBufferClear@12 @23
+    grBufferClear@12 @24
+    grBufferNumPending = grBufferNumPending@0 @25
+    grBufferNumPending@0 @26
+    grBufferSwap = grBufferSwap@4 @27
+    grBufferSwap@4 @28
+    grCheckForRoom = grCheckForRoom@4 @29
+    grCheckForRoom@4 @30
+    grChromakeyMode = grChromakeyMode@4 @31
+    grChromakeyMode@4 @32
+    grChromakeyValue = grChromakeyValue@4 @33
+    grChromakeyValue@4 @34
+    grClipWindow = grClipWindow@16 @35
+    grClipWindow@16 @36
+    grColorCombine = grColorCombine@20 @37
+    grColorCombine@20 @38
+    grColorMask = grColorMask@8 @39
+    grColorMask@8 @40
+    grConstantColorValue = grConstantColorValue@4 @41
+    grConstantColorValue4 = grConstantColorValue4@16 @42
+    grConstantColorValue4@16 @43
+    grConstantColorValue@4 @44
+    grCullMode = grCullMode@4 @45
+    grCullMode@4 @46
+    grDepthBiasLevel = grDepthBiasLevel@4 @47
+    grDepthBiasLevel@4 @48
+    grDepthBufferFunction = grDepthBufferFunction@4 @49
+    grDepthBufferFunction@4 @50
+    grDepthBufferMode = grDepthBufferMode@4 @51
+    grDepthBufferMode@4 @52
+    grDepthMask = grDepthMask@4 @53
+    grDepthMask@4 @54
+    grDisableAllEffects = grDisableAllEffects@0 @55
+    grDisableAllEffects@0 @56
+    grDitherMode = grDitherMode@4 @57
+    grDitherMode@4 @58
+    grDrawLine = grDrawLine@8 @59
+    grDrawLine@8 @60
+    grDrawPlanarPolygon = grDrawPlanarPolygon@12 @61
+    grDrawPlanarPolygon@12 @62
+    grDrawPlanarPolygonVertexList = grDrawPlanarPolygonVertexList@8 @63
+    grDrawPlanarPolygonVertexList@8 @64
+    grDrawPoint = grDrawPoint@4 @65
+    grDrawPoint@4 @66
+    grDrawPolygon = grDrawPolygon@12 @67
+    grDrawPolygon@12 @68
+    grDrawPolygonVertexList = grDrawPolygonVertexList@8 @69
+    grDrawPolygonVertexList@8 @70
+    grDrawTriangle = grDrawTriangle@12 @71
+    grDrawTriangle@12 @72
+    grErrorSetCallback = grErrorSetCallback@4 @73
+    grErrorSetCallback@4 @74
+    grFogColorValue = grFogColorValue@4 @75
+    grFogColorValue@4 @76
+    grFogMode = grFogMode@4 @77
+    grFogMode@4 @78
+    grFogTable = grFogTable@4 @79
+    grFogTable@4 @80
+    grGammaCorrectionValue = grGammaCorrectionValue@4 @81
+    grGammaCorrectionValue@4 @82
+    grGlideGetState = grGlideGetState@4 @83
+    grGlideGetState@4 @84
+    grGlideGetVersion = grGlideGetVersion@4 @85
+    grGlideGetVersion@4 @86
+    grGlideInit = grGlideInit@0 @87
+    grGlideInit@0 @88
+    grGlideSetState = grGlideSetState@4 @89
+    grGlideSetState@4 @90
+    grGlideShamelessPlug = grGlideShamelessPlug@4 @91
+    grGlideShamelessPlug@4 @92
+    grGlideShutdown = grGlideShutdown@0 @93
+    grGlideShutdown@0 @94
+    grHints = grHints@8 @95
+    grHints@8 @96
+    grLfbConstantAlpha = grLfbConstantAlpha@4 @97
+    grLfbConstantAlpha@4 @98
+    grLfbConstantDepth = grLfbConstantDepth@4 @99
+    grLfbConstantDepth@4 @100
+    grLfbLock = grLfbLock@24 @101
+    grLfbLock@24 @102
+    grLfbReadRegion = grLfbReadRegion@28 @103
+    grLfbReadRegion@28 @104
+    grLfbUnlock = grLfbUnlock@8 @105
+    grLfbUnlock@8 @106
+    grLfbWriteColorFormat = grLfbWriteColorFormat@4 @107
+    grLfbWriteColorFormat@4 @108
+    grLfbWriteColorSwizzle = grLfbWriteColorSwizzle@8 @109
+    grLfbWriteColorSwizzle@8 @110
+    grLfbWriteRegion = grLfbWriteRegion@32 @111
+    grLfbWriteRegion@32 @112
+    grRenderBuffer = grRenderBuffer@4 @113
+    grRenderBuffer@4 @114
+    grResetTriStats = grResetTriStats@0 @115
+    grResetTriStats@0 @116
+    grSplash = grSplash@20 @117
+    grSplash@20 @118
+    grSstConfigPipeline = grSstConfigPipeline@12 @119
+    grSstConfigPipeline@12 @120
+    grSstControl = grSstControl@4 @121
+    grSstControl@4 @122
+    grSstIdle = grSstIdle@0 @123
+    grSstIdle@0 @124
+    grSstIsBusy = grSstIsBusy@0 @125
+    grSstIsBusy@0 @126
+    grSstOrigin = grSstOrigin@4 @127
+    grSstOrigin@4 @128
+    grSstPerfStats = grSstPerfStats@4 @129
+    grSstPerfStats@4 @130
+    grSstQueryBoards = grSstQueryBoards@4 @131
+    grSstQueryBoards@4 @132
+    grSstQueryHardware = grSstQueryHardware@4 @133
+    grSstQueryHardware@4 @134
+    grSstResetPerfStats = grSstResetPerfStats@0 @135
+    grSstResetPerfStats@0 @136
+    grSstScreenHeight = grSstScreenHeight@0 @137
+    grSstScreenHeight@0 @138
+    grSstScreenWidth = grSstScreenWidth@0 @139
+    grSstScreenWidth@0 @140
+    grSstSelect = grSstSelect@4 @141
+    grSstSelect@4 @142
+    grSstStatus = grSstStatus@0 @143
+    grSstStatus@0 @144
+    grSstVRetraceOn = grSstVRetraceOn@0 @145
+    grSstVRetraceOn@0 @146
+    grSstVidMode = grSstVidMode@8 @147
+    grSstVidMode@8 @148
+    grSstVideoLine = grSstVideoLine@0 @149
+    grSstVideoLine@0 @150
+    grSstWinClose = grSstWinClose@0 @151
+    grSstWinClose@0 @152
+    grSstWinOpen = grSstWinOpen@28 @153
+    grSstWinOpen@28 @154
+    grTexCalcMemRequired = grTexCalcMemRequired@16 @155
+    grTexCalcMemRequired@16 @156
+    grTexClampMode = grTexClampMode@12 @157
+    grTexClampMode@12 @158
+    grTexCombine = grTexCombine@28 @159
+    grTexCombine@28 @160
+    grTexCombineFunction = grTexCombineFunction@8 @161
+    grTexCombineFunction@8 @162
+    grTexDetailControl = grTexDetailControl@16 @163
+    grTexDetailControl@16 @164
+    grTexDownloadMipMap = grTexDownloadMipMap@16 @165
+    grTexDownloadMipMap@16 @166
+    grTexDownloadMipMapLevel = grTexDownloadMipMapLevel@32 @167
+    grTexDownloadMipMapLevel@32 @168
+    grTexDownloadMipMapLevelPartial = grTexDownloadMipMapLevelPartial@40 @169
+    grTexDownloadMipMapLevelPartial@40 @170
+    grTexDownloadTable = grTexDownloadTable@12 @171
+    grTexDownloadTable@12 @172
+    grTexDownloadTablePartial = grTexDownloadTablePartial@20 @173
+    grTexDownloadTablePartial@20 @174
+    grTexFilterMode = grTexFilterMode@12 @175
+    grTexFilterMode@12 @176
+    grTexLodBiasValue = grTexLodBiasValue@8 @177
+    grTexLodBiasValue@8 @178
+    grTexMaxAddress = grTexMaxAddress@4 @179
+    grTexMaxAddress@4 @180
+    grTexMinAddress = grTexMinAddress@4 @181
+    grTexMinAddress@4 @182
+    grTexMipMapMode = grTexMipMapMode@12 @183
+    grTexMipMapMode@12 @184
+    grTexMultibase = grTexMultibase@8 @185
+    grTexMultibase@8 @186
+    grTexMultibaseAddress = grTexMultibaseAddress@20 @187
+    grTexMultibaseAddress@20 @188
+    grTexNCCTable = grTexNCCTable@8 @189
+    grTexNCCTable@8 @190
+    grTexSource = grTexSource@16 @191
+    grTexSource@16 @192
+    grTexTextureMemRequired = grTexTextureMemRequired@8 @193
+    grTexTextureMemRequired@8 @194
+    grTriStats = grTriStats@8 @195
+    grTriStats@8 @196
+    gu3dfGetInfo = gu3dfGetInfo@8 @197
+    gu3dfGetInfo@8 @198
+    gu3dfLoad = gu3dfLoad@8 @199
+    gu3dfLoad@8 @200
+    guAADrawTriangleWithClip = guAADrawTriangleWithClip@12 @201
+    guAADrawTriangleWithClip@12 @202
+    guAlphaSource = guAlphaSource@4 @203
+    guAlphaSource@4 @204
+    guColorCombineFunction = guColorCombineFunction@4 @205
+    guColorCombineFunction@4 @206
+    guDrawPolygonVertexListWithClip = guDrawPolygonVertexListWithClip@8 @207
+    guDrawPolygonVertexListWithClip@8 @208
+    guDrawTriangleWithClip = guDrawTriangleWithClip@12 @209
+    guDrawTriangleWithClip@12 @210
+    guEncodeRLE16 = guEncodeRLE16@16 @211
+    guEncodeRLE16@16 @212
+    guEndianSwapBytes = guEndianSwapBytes@4 @213
+    guEndianSwapBytes@4 @214
+    guEndianSwapWords = guEndianSwapWords@4 @215
+    guEndianSwapWords@4 @216
+    guFbReadRegion = guFbReadRegion@24 @217
+    guFbReadRegion@24 @218
+    guFbWriteRegion = guFbWriteRegion@24 @219
+    guFbWriteRegion@24 @220
+    guFogGenerateExp = guFogGenerateExp@8 @221
+    guFogGenerateExp2 = guFogGenerateExp2@8 @222
+    guFogGenerateExp2@8 @223
+    guFogGenerateExp@8 @224
+    guFogGenerateLinear = guFogGenerateLinear@12 @225
+    guFogGenerateLinear@12 @226
+    guFogTableIndexToW = guFogTableIndexToW@4 @227
+    guFogTableIndexToW@4 @228
+    guMPDrawTriangle = guMPDrawTriangle@12 @229
+    guMPDrawTriangle@12 @230
+    guMPInit = guMPInit@0 @231
+    guMPInit@0 @232
+    guMPTexCombineFunction = guMPTexCombineFunction@4 @233
+    guMPTexCombineFunction@4 @234
+    guMPTexSource = guMPTexSource@8 @235
+    guMPTexSource@8 @236
+    guMovieSetName = guMovieSetName@4 @237
+    guMovieSetName@4 @238
+    guMovieStart = guMovieStart@0 @239
+    guMovieStart@0 @240
+    guMovieStop = guMovieStop@0 @241
+    guMovieStop@0 @242
+    guTexAllocateMemory = guTexAllocateMemory@60 @243
+    guTexAllocateMemory@60 @244
+    guTexChangeAttributes = guTexChangeAttributes@48 @245
+    guTexChangeAttributes@48 @246
+    guTexCombineFunction = guTexCombineFunction@8 @247
+    guTexCombineFunction@8 @248
+    guTexCreateColorMipMap = guTexCreateColorMipMap@0 @249
+    guTexCreateColorMipMap@0 @250
+    guTexDownloadMipMap = guTexDownloadMipMap@12 @251
+    guTexDownloadMipMap@12 @252
+    guTexDownloadMipMapLevel = guTexDownloadMipMapLevel@12 @253
+    guTexDownloadMipMapLevel@12 @254
+    guTexGetCurrentMipMap = guTexGetCurrentMipMap@4 @255
+    guTexGetCurrentMipMap@4 @256
+    guTexGetMipMapInfo = guTexGetMipMapInfo@4 @257
+    guTexGetMipMapInfo@4 @258
+    guTexMemQueryAvail = guTexMemQueryAvail@4 @259
+    guTexMemQueryAvail@4 @260
+    guTexMemReset = guTexMemReset@0 @261
+    guTexMemReset@0 @262
+    guTexSource = guTexSource@4 @263
+    guTexSource@4 @264

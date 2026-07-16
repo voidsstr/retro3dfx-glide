@@ -1334,6 +1334,9 @@ modify [eax];
 #define P6FENCE __eieio()
 #elif defined(__GNUC__) && defined(__i386__)
 #define P6FENCE asm("xchg %%eax, %0" : : "m" (_GlideRoot.p6Fencer) : "eax");
+#elif defined(__GNUC__)
+/* host-side offset-generator build */
+#define P6FENCE
 #else
 #error "P6 Fencing in-line assembler code needs to be added for this compiler"
 #endif /* Compiler specific fence commands */
