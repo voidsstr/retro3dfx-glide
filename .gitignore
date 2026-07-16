@@ -1,0 +1,10 @@
+*.o
+*.a
+*.dll
+*.exe
+fxgasm.h
+fxinline.h
+fxbldno.h
+glide3x.def
+libglide3x.dll.a
+swlibs
