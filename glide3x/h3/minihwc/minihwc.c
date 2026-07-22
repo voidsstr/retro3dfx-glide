@@ -525,6 +525,7 @@
 ** 1     3/04/98 4:13p Dow
 */
 
+#include <stdio.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1153,8 +1154,23 @@ hwcMapBoard(hwcBoardInfo *bInfo, FxU32 bAddrMask)
     req.optData.linearAddrReq.pHandle = bInfo->procHandle;
 
     GDBG_INFO(80, FN_NAME ":  ExtEscape:HWCEXT_GETLINEARADDR\n");
-    ExtEscape((HDC) bInfo->hdc, bInfo->hwcEscape, sizeof(req), (void *) &req,
-      sizeof(res), (void *) &res);
+    memset(&res, 0, sizeof(res));   /* [retro3dfx] no uninitialized garbage */
+    {
+      int _rv = ExtEscape((HDC) bInfo->hdc, bInfo->hwcEscape, sizeof(req),
+                          (void *) &req, sizeof(res), (void *) &res);
+      /* [retro3dfx] the original code ignored the ExtEscape return value and
+         only checked res.resStatus — a failed escape left res uninitialized and
+         base0=garbage -> grSstWinOpen faulted. Treat rv<=0 as a hard failure. */
+      if (_rv <= 0) res.resStatus = 0;
+      /* [retro3dfx] VERIFIED ROOT CAUSE (2026-07-22): on the H5 3dfxv3d driver +
+         3dfxv3m miniport, GETLINEARADDR returns resStatus=1 numBaseAddrs=3 but
+         all baseAddresses==0 (the miniport's IOCTL_VIDEO_QUERY_GLIDE_ACCESS_RANGES
+         reports success with VirtualAddress=0). Using a 0 register base + a
+         register offset faulted at ~0x14717. Guard: a zero reg base is a failure,
+         so grSstWinOpen returns an error instead of crashing. (Full fix = make the
+         miniport map non-zero, or take the register base from the DDraw path.) */
+      if (res.optData.linearAddressRes.baseAddresses[0] == 0) res.resStatus = 0;
+    }
 
     if (res.resStatus != 1) {
       strcpy(errorString, "HWCEXT_GETLINEARADDR Failed");
