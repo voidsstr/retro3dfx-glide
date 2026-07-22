@@ -951,16 +951,37 @@ hwcInit(FxU32 vID, FxU32 dID)
       int 
         status;
 
+      /* [retro3dfx] Establish the per-process linear memory mapping BEFORE
+         ALLOCCONTEXT.  The display driver's hwcGetLinearAddr only MAPS on the
+         new-GLIDESTATE code path; ALLOCCONTEXT (hwcAllocContext) allocates the
+         GLIDESTATE WITHOUT mapping, so if it runs first the state exists
+         unmapped and every later GETLINEARADDR returns glideRegBase=0 ->
+         grSstWinOpen faults (verified on the H5 3dfxv3d driver: base0=0).
+         Sending GETLINEARADDR first makes the driver allocate+map the state;
+         ALLOCCONTEXT then reuses that mapped state (hwcAllocateGlideState...
+         returns the existing struct, refcount++). Result is discarded here —
+         hwcMapBoard reads the (now non-zero) bases later. */
+      {
+        hwcExtRequest_t primeReq;
+        hwcExtResult_t  primeRes;
+        primeReq.which = HWCEXT_GETLINEARADDR;
+        primeReq.optData.linearAddrReq.devNum  = monitor;
+        primeReq.optData.linearAddrReq.pHandle = (FxU32) GetCurrentProcessId();
+        GDBG_INFO(80, FN_NAME ":  ExtEscape:HWCEXT_GETLINEARADDR (prime mapping)\n");
+        ExtEscape(hdc, escape, sizeof(primeReq), (LPSTR) &primeReq,
+                  sizeof(primeRes), (LPSTR) &primeRes);
+      }
+
       /* Allocate a context with the Driver */
       ctxReq.which = HWCEXT_ALLOCCONTEXT;
       ctxReq.optData.allocContextReq.protocolRev = HWCEXT_PROTOCOLREV;
       ctxReq.optData.allocContextReq.appType = HWCEXT_ABAPPTYPE_FSEM;
-      
+
       GDBG_INFO(80, FN_NAME ":  ExtEscape:HWCEXT_ALLOCCONTEXT\n");
       status = ExtEscape(hdc, escape,
                          sizeof(ctxReq), (LPSTR) &ctxReq,
-                         sizeof(ctxRes), (LPSTR) &ctxRes); 
-      
+                         sizeof(ctxRes), (LPSTR) &ctxRes);
+
       hInfo.nBoards++;
       hInfo.boardInfo[monitor].boardNum     = monitor;
       hInfo.boardInfo[monitor].hdc          = hdc;
@@ -1158,6 +1179,11 @@ hwcMapBoard(hwcBoardInfo *bInfo, FxU32 bAddrMask)
     {
       int _rv = ExtEscape((HDC) bInfo->hdc, bInfo->hwcEscape, sizeof(req),
                           (void *) &req, sizeof(res), (void *) &res);
+      { FILE *_lf = fopen("C:\\GLIDEHWC.LOG","a");
+        if(_lf){ fprintf(_lf,"GETLINEARADDR rv=%d resStatus=%d base0=%08lx base1=%08lx base2=%08lx\r\n",
+                 _rv,(int)res.resStatus,res.optData.linearAddressRes.baseAddresses[0],
+                 res.optData.linearAddressRes.baseAddresses[1],
+                 res.optData.linearAddressRes.baseAddresses[2]); fclose(_lf);} }
       /* [retro3dfx] the original code ignored the ExtEscape return value and
          only checked res.resStatus — a failed escape left res uninitialized and
          base0=garbage -> grSstWinOpen faulted. Treat rv<=0 as a hard failure. */
