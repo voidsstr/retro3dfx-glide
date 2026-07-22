@@ -1179,11 +1179,6 @@ hwcMapBoard(hwcBoardInfo *bInfo, FxU32 bAddrMask)
     {
       int _rv = ExtEscape((HDC) bInfo->hdc, bInfo->hwcEscape, sizeof(req),
                           (void *) &req, sizeof(res), (void *) &res);
-      { FILE *_lf = fopen("C:\\GLIDEHWC.LOG","a");
-        if(_lf){ fprintf(_lf,"GETLINEARADDR rv=%d resStatus=%d base0=%08lx base1=%08lx base2=%08lx\r\n",
-                 _rv,(int)res.resStatus,res.optData.linearAddressRes.baseAddresses[0],
-                 res.optData.linearAddressRes.baseAddresses[1],
-                 res.optData.linearAddressRes.baseAddresses[2]); fclose(_lf);} }
       /* [retro3dfx] the original code ignored the ExtEscape return value and
          only checked res.resStatus — a failed escape left res uninitialized and
          base0=garbage -> grSstWinOpen faulted. Treat rv<=0 as a hard failure. */

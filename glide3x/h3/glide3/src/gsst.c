@@ -1067,7 +1067,6 @@ GR_ENTRY(grSstWinOpen, GrContext_t, ( FxU32                   hWnd,
         GrErrorCallback( FN_NAME": Failed to re-map the hw.", FXFALSE );
         GR_RETURN( FXFALSE );
       }
-
       if (!hwcInitRegisters(bInfo)) {
         GDBG_INFO( gc->myLevel, "Failed to re-initialize the hw.\n" );
         GrErrorCallback( FN_NAME": Failed to re-initialize the hw.", FXFALSE );
@@ -1080,7 +1079,6 @@ GR_ENTRY(grSstWinOpen, GrContext_t, ( FxU32                   hWnd,
       gc->lfb_ptr = (FxU32*)bInfo->regInfo.lfbBase;
       gc->rawLfb  = (FxU32*)bInfo->regInfo.rawLfbBase;
       gc->tex_ptr = (FxU32*)SST_TEX_ADDRESS(bInfo->regInfo.sstBase);
-
       gc->hwInitP = FXTRUE;
     }
 
@@ -1094,7 +1092,6 @@ GR_ENTRY(grSstWinOpen, GrContext_t, ( FxU32                   hWnd,
     vInfo->refresh     = gc->grSstRefresh;
     vInfo->tiled       = FXTRUE;
     vInfo->initialized = FXTRUE;
-  
     if ( hwcAllocBuffers( bInfo, nColBuffers, nAuxBuffers ) == FXFALSE ) {
       GDBG_INFO( gc->myLevel, "hwcAllocBuffers failed\n" );
       GrErrorCallback(hwcGetErrorString(), FXFALSE);
@@ -1115,13 +1112,11 @@ GR_ENTRY(grSstWinOpen, GrContext_t, ( FxU32                   hWnd,
     vInfo->hWnd     = gc->grHwnd;
     vInfo->sRes     = gc->grSstRez;
     vInfo->vRefresh = gc->grSstRefresh;
-  
     if ( hwcInitVideo( bInfo, FXTRUE, gc->vidTimings, FXTRUE ) == FXFALSE ) {
       GrErrorCallback(hwcGetErrorString(), FXFALSE);
       GDBG_INFO( gc->myLevel, "hwcInitVideo failed\n" );
       return 0;
     }
-
     /* Restore the function specializations if the user is trying to
      * recover. This only resets the non-null environment. The actual
      * function specializations are recovered later in the mainline
