@@ -1302,7 +1302,6 @@ hwcInitRegisters(hwcBoardInfo *bInfo)
   /* Figure out if it's SDRAM */
   {
     FxU32 dramInit1;
-    
     HWC_IO_LOAD(bInfo->regInfo, dramInit1, dramInit1);
     bInfo->sdRAM = ((dramInit1 & SST_MCTL_TYPE_SDRAM) != 0x00UL);
 
@@ -1383,11 +1382,9 @@ hwcInitRegisters(hwcBoardInfo *bInfo)
      * don't know it under DOS  (see hwcInit) - dwj 
      */
     bInfo->h3Mem = h3InitGetMemSize(bInfo->regInfo.ioPortBase, FXFALSE);
-
-    h3InitVga(bInfo->regInfo.ioPortBase, FXTRUE); 
+    h3InitVga(bInfo->regInfo.ioPortBase, FXTRUE);
   }
 #endif
-  
   return FXTRUE;
 
 #undef FN_NAME
@@ -4402,8 +4399,16 @@ hwcShareContextData(hwcBoardInfo *bInfo, FxU32 **data)
 
     ExtEscape((HDC) bInfo->hdc, bInfo->hwcEscape, sizeof(ctxReq), (void *) &ctxReq,
               sizeof(ctxRes), (void *) &ctxRes);
-    
+
     *data = (FxU32 *) ctxRes.optData.contextDwordNTRes.dwordOffset;
+    /* [retro3dfx] The SHARE_CONTEXT_DWORD (non-NT) and linux branches below both
+     * fall back to &dummyContextDWORD when the driver returns no shared dword;
+     * the NT/CONTEXT_DWORD_NT branch was missing that guard, so a display driver
+     * that doesn't map a lost-context dword (ours) left gc->lostContext == NULL
+     * and grSstWinOpen crashed at `*gc->lostContext = FXFALSE`. Mirror the guard.
+     * (Proven 2026-07-22, clean-room glide bring-up on .124 Voodoo3.) */
+    if (*data == NULL || *data == (FxU32 *) 0xffffffff)
+      *data = &dummyContextDWORD;
 
   } else {
     /* context DWORD is rather poorly named now, but oh, well. */

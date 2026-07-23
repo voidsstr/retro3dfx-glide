@@ -672,7 +672,6 @@ GR_DIENTRY(grGetString, const char *, (FxU32 pname))
 {
 #define FN_NAME "grGetString"
   const char *rv = "ERROR";
-  
   switch(pname) {
   case GR_EXTENSION:
     /* NOTE!: leave a leading and trailing spaces on the list so that 
@@ -682,8 +681,7 @@ GR_DIENTRY(grGetString, const char *, (FxU32 pname))
   case GR_HARDWARE:
     {
       GR_DCL_GC;
-      
-      if (gc->bInfo->pciInfo.deviceID == 3)
+      if (gc && gc->bInfo && gc->bInfo->pciInfo.deviceID == 3)
         rv = "Voodoo Banshee (tm)";
       else
         rv = "Voodoo3 (tm)";

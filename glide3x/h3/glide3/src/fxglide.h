@@ -1886,13 +1886,16 @@ _grSstVRetraceOn(void);
 
 static __inline unsigned long getThreadValueFast (void)
 {
- unsigned long t;
- __asm __volatile (" \
-       mov %%fs:(%0), %%eax; \
-       add %1, %%eax; \
-       mov (%%eax), %%eax; \
- ":"=a"(t):"i"(WNT_TEB_PTR), "g"(_GlideRoot.tlsOffset));
- return t;
+ /* [retro3dfx] The original fast path read the TLS slot straight out of the
+  * TEB via `%fs:` + a hardcoded slot offset (tlsIndex*4 + WNT_TEB_TLS_OFFSET).
+  * That only works when TlsAlloc() hands back an index < 64 (the inline
+  * TlsSlots array) AND the OSWin95/NT offset selection is correct. On our XP
+  * fleet box the mingw CRT/loader consume the low TLS slots first, so
+  * TlsAlloc() returns a high index whose slot lives in the ExpansionSlots
+  * array — NOT at TEB+tlsOffset — and the raw read faulted (NULL+0x1c) in
+  * grGetString's GR_DCL_GC. TlsGetValue is the ABI-correct accessor for any
+  * index/OS; use it. (Proven 2026-07-22: glide bring-up on .124 Voodoo3.) */
+ return (unsigned long) TlsGetValue(_GlideRoot.tlsIndex);
 }
 
 #else  /* __GNUC__ */
