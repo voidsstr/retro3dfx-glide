@@ -1780,7 +1780,9 @@ _GlideInitEnvironment(void)
    */
   _GlideRoot.environment.outputBpp = GLIDE_GETENV("FX_GLIDE_BPP", 0L);
   /* check for a valid value */
-  if(_GlideRoot.environment.outputBpp != 32 ||
+  /* [retro3dfx H7] was "!= 32 || != 15" - always true, so FX_GLIDE_BPP was
+     always reset to 0 and forcing 32/15-bpp output never worked */
+  if(_GlideRoot.environment.outputBpp != 32 &&
      _GlideRoot.environment.outputBpp != 15) {
     _GlideRoot.environment.outputBpp = 0;
   }

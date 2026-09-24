@@ -884,7 +884,10 @@ GR_DIENTRY(grGetString, const char *, (FxU32 pname))
     {
       GR_DCL_GC;
       
-      if (!gc)  /* workaround null gc bug */
+      /* [retro3dfx] h3 commit a71eb3f also guards gc->bInfo: GR_DCL_GC can hand
+         back a gc whose bInfo is not yet wired up during bring-up, and the
+         deviceID read below then derefs NULL. */
+      if (!gc || !gc->bInfo)  /* workaround null gc bug */
         return rv;
       if (!IS_NAPALM(gc->bInfo->pciInfo.deviceID))
         rv = " " BASE_EXT_STR QUERY_EXT_STR POINTCAST_EXT_STR;

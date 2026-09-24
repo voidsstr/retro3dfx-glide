@@ -1200,6 +1200,10 @@ monitorEnum( HMONITOR handle, HDC dc, LPRECT rect, LPARAM param )
     HWCEXT_ESCAPE(num_monitor) = EXT_HWC ;
   else if (ExtEscape(dc, EXT_HWC_OLD, sizeof(ctxReq), (LPSTR) &ctxReq, sizeof(ctxRes), (LPSTR) &ctxRes)) 
     HWCEXT_ESCAPE(num_monitor) = EXT_HWC_OLD ;
+  /* [retro3dfx H6] the XP escape code, which h3 already probes: a display
+     driver that answers only 0x13df3 showed no board at all */
+  else if (ExtEscape(dc, EXT_HWC_WXP, sizeof(ctxReq), (LPSTR) &ctxReq, sizeof(ctxRes), (LPSTR) &ctxRes)) 
+    HWCEXT_ESCAPE(num_monitor) = EXT_HWC_WXP ;
   else
     HWCEXT_ESCAPE(num_monitor) = 0 ; /* if we don't have a display driver, we're hosed */
  
@@ -1868,7 +1872,38 @@ hwcMapBoard(hwcBoardInfo *bInfo, FxU32 bAddrMask)
     ctxReq.optData.linearAddrReq.pHandle = bInfo->procHandle;
     GDBG_INFO(80, FN_NAME ":  ExtEscape:HWCEXT_GETLINEARADDR\n");
 
-    ExtEscape((HDC)bInfo->hdc, HWCEXT_ESCAPE(bInfo->boardNum), sizeof(ctxReq), (LPSTR) &ctxReq, sizeof(ctxRes), (LPSTR) &ctxRes);
+    /* [retro3dfx] Ported from the h3 tree (see h3/minihwc/minihwc.c), where
+       all three of these were root-caused on hardware. Without them this
+       function can hand Glide a ZERO register base, which is then dereferenced
+       with a register offset - and a fault inside a fullscreen Glide context
+       does not politely fail, it takes the machine down. That is the
+       documented behaviour of the open stack on the 4-chip Voodoo 5 6000 at
+       .191 (100% ping loss, physical power cycle), and h3's own comment
+       records the zero base being VERIFIED on an H5-family display driver -
+       the same family this card runs. The intended outcome of these guards is
+       therefore not "it works" but "grSstWinOpen returns an error instead of
+       killing the box", which is a prerequisite for testing anything else. */
+    memset(&ctxRes, 0, sizeof(ctxRes));   /* no uninitialized garbage to read */
+    {
+      int _rv = ExtEscape((HDC)bInfo->hdc, HWCEXT_ESCAPE(bInfo->boardNum),
+                          sizeof(ctxReq), (LPSTR) &ctxReq,
+                          sizeof(ctxRes), (LPSTR) &ctxRes);
+      /* The original ignored the ExtEscape return value and trusted resStatus
+         alone; a failed escape then left the result struct untouched. */
+      if (_rv <= 0) {
+        GDBG_INFO(80, FN_NAME ":  ExtEscape returned %d - treating as failure\n", _rv);
+        ctxRes.resStatus = 0;
+      }
+      /* The miniport can report SUCCESS with every base address zero
+         (IOCTL_VIDEO_QUERY_GLIDE_ACCESS_RANGES returning VirtualAddress=0).
+         resStatus=1 with base0=0 is a failure, not a mapping. */
+      if (ctxRes.optData.linearAddressRes.baseAddresses[0] == 0) {
+        GDBG_INFO(80, FN_NAME ":  GETLINEARADDR gave resStatus=%d but base0=0"
+                      " - refusing to use a zero register base\n",
+                  ctxRes.resStatus);
+        ctxRes.resStatus = 0;
+      }
+    }
 
     if (ctxRes.resStatus != 1) {
       hwc_errncpy(errorString, "HWCEXT_GETLINEARADDR Failed\n");
@@ -1906,10 +1941,19 @@ hwcMapBoard(hwcBoardInfo *bInfo, FxU32 bAddrMask)
         ctxReq.optData.slaveRegReq.DeviceId = chip ;
         GDBG_INFO(80, FN_NAME ":  ExtEscape:HWCEXT_GET_SLAVE_REGS\n") ;
 
-        ExtEscape((HDC)bInfo->hdc, HWCEXT_ESCAPE(bInfo->boardNum), sizeof(ctxReq), (LPSTR) &ctxReq, sizeof(ctxRes), (LPSTR) &ctxRes) ;
+        /* [retro3dfx H4] zero the result, check the escape's own return and
+           refuse a zero register base - the same three guards as the master
+           chip's GETLINEARADDR above. Unchecked, a failed escape left the
+           PREVIOUS chip's (or garbage) mappings in chips 1-3 of a multi-chip
+           board, and Glide then drove registers through them. */
+        memset(&ctxRes, 0, sizeof(ctxRes));
+        if (ExtEscape((HDC)bInfo->hdc, HWCEXT_ESCAPE(bInfo->boardNum), sizeof(ctxReq), (LPSTR) &ctxReq, sizeof(ctxRes), (LPSTR) &ctxRes) <= 0)
+          ctxRes.resStatus = 0;
 
-        if (ctxRes.resStatus != 1) 
+        if (ctxRes.resStatus != 1 || ctxRes.optData.slaveRegRes.Regs[0] == 0)
         {
+          GDBG_INFO(80, FN_NAME ":  GET_SLAVE_REGS chip %d: resStatus=%d reg0=0x%x - refusing\n",
+                    chip, ctxRes.resStatus, ctxRes.optData.slaveRegRes.Regs[0]);
           hwc_errncpy(errorString, "HWCEXT_GET_SLAVE_REGS Failed") ;
           return FXFALSE ;
         }
@@ -4763,10 +4807,14 @@ hwcInitVideo(hwcBoardInfo *bInfo, FxBool tiled, FxVideoTimingInfo *vidTiming,
       ctxReq.optData.sliAAReq.MemInfo.dwBpp = bpp;
 
       GDBG_INFO(80, FN_NAME ": HWC_MINIVDD_HACK: ExEscape:HWCEXT_SLI_AA_REQUEST\n");
-      ExtEscape((HDC)bInfo->hdc, HWCEXT_ESCAPE(bInfo->boardNum), 
+      /* [retro3dfx H5] retVal was initialised to FXTRUE and never assigned, so
+         a refused SLI/AA setup logged as success. Record what came back. */
+      memset(&ctxRes, 0, sizeof(ctxRes));
+      retVal = ExtEscape((HDC)bInfo->hdc, HWCEXT_ESCAPE(bInfo->boardNum), 
                 sizeof(ctxReq), (LPSTR) &ctxReq,
                 sizeof(ctxRes), (LPSTR) &ctxRes);
-      GDBG_INFO(80, FN_NAME ": HWC_MINIVDD_HACK: ExtEscape retVal=%d\n", retVal);
+      GDBG_INFO(80, FN_NAME ": HWC_MINIVDD_HACK: ExtEscape retVal=%d resStatus=%d\n",
+                retVal, ctxRes.resStatus);
 
       /* the w2k miniport doesn't copy this value to the slave chips */
       /* so for now re-write it here */
