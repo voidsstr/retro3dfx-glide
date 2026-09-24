@@ -3519,12 +3519,20 @@ GR_ENTRY(grFinish, void, (void))
      * Napalm should be read as idle three times
      * before we believe it.
      */
-    do {
-      if(_grSstStatus() & SST_BUSY)
-        i = 0; /* Reset counter */
-      else
-        i++;
-    } while(i < 3);
+    {
+      /* [retro3dfx G3] bounded idle wait (vintage WEDGE-BREAK, 2b3e832): with
+       * SST_BUSY stuck this spun forever - on the grSstWinClose path that
+       * hangs the app at exit and the desktop is never restored. */
+      FxU32 busyPolls = 0;
+      do {
+        if(_grSstStatus() & SST_BUSY) {
+          i = 0; /* Reset counter */
+          if (++busyPolls > 4000000UL)
+            break;
+        } else
+          i++;
+      } while(i < 3);
+    }
 /*
     while (_grSstStatus() & SST_BUSY) ;
     while (((_grSstStatus() & SST_BUSY) == 0) &&

@@ -1009,6 +1009,7 @@ _grCommandTransportMakeRoom(const FxI32 blockSize, const char* fName, const int 
       {
         unsigned long lastHwRead = gc->cmdTransportInfo.fifoRead;
         FxI32 roomToReadPtr = gc->cmdTransportInfo.roomToReadPtr;
+        FxU32 stuckPolls = 0;   /* [retro3dfx G3] */
         
         while (roomToReadPtr < blockSize) {
           unsigned long curReadPtr = HW_FIFO_PTR(FXTRUE);
@@ -1041,6 +1042,23 @@ _grCommandTransportMakeRoom(const FxI32 blockSize, const char* fName, const int 
           }
 
           checks++;
+
+          /* [retro3dfx G3] bounded fifo stall, as the vintage lane's
+           * WEDGE-BREAK (retro-3dfx 2b3e832). If the accelerator wedges, the
+           * read pointer of every chip stops advancing and this loop spun
+           * forever with the board held in an exclusive fullscreen context.
+           * ~4M no-progress polls is seconds of wall time: call it a wedge,
+           * pretend the fifo drained and let the caller get back to the app
+           * (which can then be closed) instead of hanging it for good. */
+          if (curReadDist == 0) {
+            if (++stuckPolls > 4000000UL) {
+              GDBG_INFO(0, "retro3dfx: fifo WEDGE-BREAK after %lu stuck polls\n",
+                        (unsigned long) stuckPolls);
+              roomToReadPtr = blockSize;
+              break;
+            }
+          } else
+            stuckPolls = 0;
 
 #ifdef GLIDE_DEBUG
           if (checks > 1000) {
