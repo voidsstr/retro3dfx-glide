@@ -870,7 +870,11 @@ GR_DIENTRY(grGet, FxU32, (FxU32 pname, FxU32 plength, FxI32 *params))
 #endif
 
 #define BASE_EXT_STR	"CHROMARANGE TEXCHROMA TEXMIRROR TEXUMA PALETTE6666 FOGCOORD SURFACE COMMAND_TRANSPORT TEXTUREBUFFER GETGAMMA GETREGISTRY ALPHAFOG "
-#define NAPALM_EXT_STR	"PIXEXT COMBINE TEXFMT "
+/* [retro3dfx] RETRO3DFX_PARTIALROW: this Glide's
+ * grTexDownloadMipMapLevelPartialRowExt aligns min_s correctly (gtexdl.c).
+ * An ICD may send sub-row texture patches only when it sees this token -
+ * other Glides carry the original `min_s &= 2` bug. */
+#define NAPALM_EXT_STR	"PIXEXT COMBINE TEXFMT RETRO3DFX_PARTIALROW "
 
 GR_DIENTRY(grGetString, const char *, (FxU32 pname))
 {

@@ -1911,9 +1911,12 @@ GR_EXT_ENTRY(grTexDownloadMipMapLevelPartialRowExt,
             width = max_s;
 
             // 64 bit Align minS if possible
-            if (bitsPerTexel == 8) min_s &= 8;
-            else if (bitsPerTexel == 16) min_s &= 4;
-            else if (bitsPerTexel == 32) min_s &= 2;
+            /* [retro3dfx] the masks read `&= 8`, `&= 4`, `&= 2`, which keep
+             * ONE bit instead of clearing the low ones: a 32-bit row patch
+             * starting at s = 16 was sent from s = 0. Align DOWN to 64 bits. */
+            if (bitsPerTexel == 8) min_s &= ~7;
+            else if (bitsPerTexel == 16) min_s &= ~3;
+            else if (bitsPerTexel == 32) min_s &= ~1;
 
             // Get difference
             width -= min_s;
@@ -1923,6 +1926,10 @@ GR_EXT_ENTRY(grTexDownloadMipMapLevelPartialRowExt,
             else if (bitsPerTexel == 8 && width > 4) width = (width+7)&(~7);
             else if (bitsPerTexel == 16 && width > 2) width = (width+3)&(~3);
             else if (bitsPerTexel == 32 && width > 1) width = (width+1)&(~1);
+            /* [retro3dfx] ...but never past the end of the row: the round-up
+             * would otherwise write (and read) the next row's first texels. */
+            if (min_s + (int) width > real_width && real_width > min_s)
+              width = real_width - min_s;
 
             // No width, no download
             if (!width) goto all_done;
