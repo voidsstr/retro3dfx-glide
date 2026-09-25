@@ -1075,6 +1075,23 @@ static void hwc_errncpy(char *dst,const char *src)
    }
    dst[-1]=0;
 }
+
+/* [retro3dfx] FX_GLIDE_NUM_CHIPS is honoured only as 1 (single chip) or the
+ * real chip count. Any value in between made Glide lay out SLI for fewer chips
+ * than the board has and send HWCEXT_SLI_AA_REQUEST with that smaller dwChips;
+ * the kernel side still drives every unit's video path, and on the 4-chip
+ * V5 6000 FX_GLIDE_NUM_CHIPS=2 killed the whole box (retro-3dfx
+ * V56K-SLI-FINDINGS.md; "=1 is safe", "=4/unset are safe"). A refused value is
+ * treated as unset. Mirrored by tests/native/test_h5_numchips_clamp.c. */
+static FxU32
+hwcClampNumChipsOverride(FxI32 requested, FxU32 realNumChips)
+{
+  if (requested == 1)
+    return 1;
+  if (requested > 0 && (FxU32) requested == realNumChips)
+    return realNumChips;
+  return realNumChips;
+}
 #endif
 
 /*
@@ -1598,14 +1615,9 @@ hwcInit(FxU32 vID, FxU32 dID)
     hInfo.boardInfo[monitor].pciInfo.realNumChips = hInfo.boardInfo[monitor].pciInfo.numChips;
     
     if(GETENV("FX_GLIDE_NUM_CHIPS")) {
-      FxU32 numChips;
-      numChips = atoi(GETENV("FX_GLIDE_NUM_CHIPS"));
-      /* Don't do anything stupid... */
-      if(numChips < 1)
-        numChips = 1;
-      if(numChips <= hInfo.boardInfo[monitor].pciInfo.numChips) {
-        hInfo.boardInfo[monitor].pciInfo.numChips = numChips;
-      }
+      /* [retro3dfx] only 1 or the real count - see hwcClampNumChipsOverride */
+      hInfo.boardInfo[monitor].pciInfo.numChips = hwcClampNumChipsOverride(
+          atoi(GETENV("FX_GLIDE_NUM_CHIPS")), hInfo.boardInfo[monitor].pciInfo.numChips);
     }
     
     if (GETENV("FX_GLIDE_FBRAM")) {
@@ -1711,15 +1723,10 @@ hwcInit(FxU32 vID, FxU32 dID)
             FxU32 deviceid = atoi(GETENV("FX_GLIDE_DEVICEID"));
             hInfo.boardInfo[j].pciInfo.deviceID = deviceid;
          }
-         if(GETENV("FX_GLIDE_NUM_CHIPS"))
-         {
-            FxU32 numChips;
-            numChips = atoi(GETENV("FX_GLIDE_NUM_CHIPS"));
-            /* Don't do something stupid... */
-            if(numChips <= hInfo.boardInfo[j].pciInfo.numChips)
-            {
-               hInfo.boardInfo[j].pciInfo.numChips = numChips;
-            }
+         if(GETENV("FX_GLIDE_NUM_CHIPS")) {
+           /* [retro3dfx] only 1 or the real count - see hwcClampNumChipsOverride */
+           hInfo.boardInfo[j].pciInfo.numChips = hwcClampNumChipsOverride(
+               atoi(GETENV("FX_GLIDE_NUM_CHIPS")), hInfo.boardInfo[j].pciInfo.numChips);
          }
 #endif
          j++;
@@ -1818,12 +1825,9 @@ hwcInit(FxU32 vID, FxU32 dID)
         hInfo.boardInfo[i].pciInfo.realNumChips = hInfo.boardInfo[i].pciInfo.numChips;
             
         if(GETENV("FX_GLIDE_NUM_CHIPS")) {
-          FxU32 numChips;
-          numChips = atoi(GETENV("FX_GLIDE_NUM_CHIPS"));
-          /* Don't do something stupid... */
-          if(numChips <= hInfo.boardInfo[i].pciInfo.numChips) {
-            hInfo.boardInfo[i].pciInfo.numChips = numChips;
-          }
+          /* [retro3dfx] only 1 or the real count - see hwcClampNumChipsOverride */
+          hInfo.boardInfo[i].pciInfo.numChips = hwcClampNumChipsOverride(
+              atoi(GETENV("FX_GLIDE_NUM_CHIPS")), hInfo.boardInfo[i].pciInfo.numChips);
         }      
 
         checkResolutions((int *) resolutionSupported[i],
@@ -1846,6 +1850,124 @@ hwcInit(FxU32 vID, FxU32 dID)
 
 #undef FN_NAME
 } /* hwcInit */
+
+
+/* [retro3dfx] Opt-in mapping log (RETRO_GLIDE_MAPLOG=<file>, process
+ * environment only). The display driver keys Glide's per-process state on the
+ * PID alone, and a Glide process that was force-killed never sends
+ * HWCEXT_UNMAP_MEMORY - so the next process that reuses its PID can be handed
+ * the dead process's register mappings, non-zero and unmapped (the recurring
+ * c0000005 in grGlideInit on the V5 6000). Before writing any acceptance rule
+ * we record what VirtualQuery reports for GOOD mappings on the real board:
+ * every base Glide dereferences (base0 = register window, base1 = LFB, and
+ * slave Regs[0..3]). baseAddresses[2] is an I/O port number and is skipped. */
+static void
+hwcLogMappings(hwcBoardInfo *bInfo)
+{
+  const char *path = getenv("RETRO_GLIDE_MAPLOG");
+  FILE *f;
+  FxU32 chip, i;
+  if (!path || !*path)
+    return;
+  f = fopen(path, "a");
+  if (!f)
+    return;
+  fprintf(f, "pid=%lu chips=%lu realChips=%lu\n",
+          (unsigned long) GetCurrentProcessId(),
+          (unsigned long) bInfo->pciInfo.numChips,
+          (unsigned long) bInfo->pciInfo.realNumChips);
+  for (chip = 0; chip < bInfo->pciInfo.numChips && chip < 4; chip++) {
+    for (i = 0; i < 4; i++) {
+      MEMORY_BASIC_INFORMATION mbi;
+      unsigned long va = bInfo->linearInfo.linearAddress[(chip << 2) + i];
+      if (chip == 0 && i >= 2)
+        continue;               /* [2] is an I/O port; [3] unused on chip 0 */
+      if (!va) {
+        fprintf(f, "chip%lu[%lu]=0\n", (unsigned long) chip, (unsigned long) i);
+        continue;
+      }
+      memset(&mbi, 0, sizeof(mbi));
+      if (VirtualQuery((LPCVOID) va, &mbi, sizeof(mbi)) == 0) {
+        fprintf(f, "chip%lu[%lu]=0x%08lx VirtualQuery failed %lu\n",
+                (unsigned long) chip, (unsigned long) i, va, (unsigned long) GetLastError());
+        continue;
+      }
+      fprintf(f, "chip%lu[%lu]=0x%08lx State=0x%lx Type=0x%lx Protect=0x%lx "
+                 "AllocBase=0x%08lx RegionSize=0x%lx\n",
+              (unsigned long) chip, (unsigned long) i, va,
+              (unsigned long) mbi.State, (unsigned long) mbi.Type,
+              (unsigned long) mbi.Protect, (unsigned long) mbi.AllocationBase,
+              (unsigned long) mbi.RegionSize);
+    }
+  }
+  fclose(f);
+}
+
+
+/* [retro3dfx] Refuse a mapping that is not a live view of board memory.
+ *
+ * The display driver keys Glide's per-process state on the PID alone, and a
+ * Glide process that was force-killed never sends HWCEXT_UNMAP_MEMORY, so the
+ * next process that reuses its PID can be handed the dead process's register
+ * mappings: non-zero, and either unmapped (the recurring c0000005 at
+ * HWC_IO_LOAD(dramInit1) in hwcInitRegisters) or, worse, now occupied by some
+ * unrelated allocation of ours that the first register write would corrupt.
+ * The zero-base guards cannot see either case.
+ *
+ * Every GOOD mapping measured on the V5 6000 (.124, 2026-09-24, RETRO_GLIDE_MAPLOG,
+ * two processes): State=MEM_COMMIT, Type=MEM_MAPPED, AllocationBase==base;
+ * register window 128 MB, LFB 256 MB, each slave register page 4 KB. The size
+ * floors below are deliberately far under those. NT only: the Win9x shared
+ * arena does not report this way. Mirrored by tests/native/test_h5_map_validate.c. */
+#define HWC_MAP_MIN_REG   0x00800000UL   /* register window (SST_TEX_OFFSET 0x600000 + regs) */
+#define HWC_MAP_MIN_LFB   0x00100000UL
+#define HWC_MAP_MIN_SLAVE 0x00001000UL
+
+static FxBool
+hwcMappingLooksLive(unsigned long va, unsigned long minSize, char *why, int whyLen)
+{
+  MEMORY_BASIC_INFORMATION mbi;
+  memset(&mbi, 0, sizeof(mbi));
+  if (VirtualQuery((LPCVOID) va, &mbi, sizeof(mbi)) == 0) {
+    _snprintf(why, whyLen, "VirtualQuery(0x%08lx) failed %lu", va, (unsigned long) GetLastError());
+    return FXFALSE;
+  }
+  if (mbi.State != MEM_COMMIT || mbi.Type != MEM_MAPPED ||
+      (unsigned long) mbi.AllocationBase != va || (unsigned long) mbi.RegionSize < minSize) {
+    _snprintf(why, whyLen,
+              "0x%08lx is not a live board view (State 0x%lx Type 0x%lx AllocBase 0x%08lx "
+              "RegionSize 0x%lx, need MEM_COMMIT/MEM_MAPPED/base==va/>=0x%lx)",
+              va, (unsigned long) mbi.State, (unsigned long) mbi.Type,
+              (unsigned long) mbi.AllocationBase, (unsigned long) mbi.RegionSize, minSize);
+    return FXFALSE;
+  }
+  return FXTRUE;
+}
+
+static FxBool
+hwcValidateMappings(hwcBoardInfo *bInfo)
+{
+  char why[256];
+  FxU32 chip, i;
+  if (hwcIsOSWin9x())
+    return FXTRUE;
+  if (!hwcMappingLooksLive(bInfo->linearInfo.linearAddress[0], HWC_MAP_MIN_REG, why, sizeof(why)) ||
+      !hwcMappingLooksLive(bInfo->linearInfo.linearAddress[1], HWC_MAP_MIN_LFB, why, sizeof(why)))
+    goto refuse;
+  for (chip = 1; chip < bInfo->pciInfo.numChips; chip++)
+    for (i = 0; i < 4; i++)
+      if (!hwcMappingLooksLive(bInfo->linearInfo.linearAddress[(chip << 2) + i],
+                               HWC_MAP_MIN_SLAVE, why, sizeof(why)))
+        goto refuse;
+  return FXTRUE;
+refuse:
+  bInfo->isMapped = FXFALSE;
+  _snprintf(errorString, sizeof(errorString) - 1,
+            "hwcMapBoard: the display driver returned a board mapping that is not live (%s). "
+            "Most likely a stale Glide slot left by a force-killed process whose PID this "
+            "process reused; a reboot clears it.\n", why);
+  return FXFALSE;
+}
 
 FxBool
 hwcMapBoard(hwcBoardInfo *bInfo, FxU32 bAddrMask)
@@ -1966,6 +2088,9 @@ hwcMapBoard(hwcBoardInfo *bInfo, FxU32 bAddrMask)
         }
       }
     }
+    hwcLogMappings(bInfo);   /* [retro3dfx] opt-in: RETRO_GLIDE_MAPLOG */
+    if (!hwcValidateMappings(bInfo))
+      return FXFALSE;        /* before hwcInitRegisters' first MMIO */
   }
 #elif defined(HWC_GDX_INIT)
         /* Pretty simple, because MacOS is basically lame */
@@ -2546,64 +2671,83 @@ hwcAllocBuffers(hwcBoardInfo *bInfo, FxU32 nColBuffers, FxU32 nAuxBuffers)
 #undef FN_NAME
 } /* hwcAllocBuffers */
 
-void hwcIdleHardwareWithTimeout(hwcBoardInfo *bInfo)
+/* [retro3dfx] Bounded idle wait; returns FXTRUE when every chip read idle.
+ *
+ * The original counted to 1e9 status polls (four chips each on the V5 6000,
+ * so the better part of an hour of uncached reads), then reset the MASTER
+ * chip only and jumped back without resetting its counter - after the first
+ * timeout the loop broke immediately and reset again, forever, fullscreen and
+ * exclusive. Its two callers are hwcInitFifo (every board open) and
+ * hwcRestoreVideo (every close, including from DLL_PROCESS_DETACH under the
+ * loader lock), so one stuck SST_BUSY hung the app for good and the desktop
+ * was never restored. Found by the 2026-09-24 audit (four independent
+ * finders; code and reachability both upheld).
+ *
+ * Now: poll every chip (a slave a previous SLI session left busy counts) for
+ * about 2 s of wall time, reset the master once as before, re-check once for
+ * the same bound, and REPORT the result instead of looping. */
+#define HWC_IDLE_WAIT_MS      2000
+#define HWC_IDLE_WAIT_POLLS   2000000UL   /* fallback bound, same order as G3 */
+
+static FxBool
+hwcWaitIdleBounded(hwcBoardInfo *bInfo)
 {
-  FxU32 
-    miscInit0, miscInit1, status, statusSlave, idle, timeout, i;
+  FxU32 status, statusSlave, i, streak = 0, polls = 0;
+#ifdef _WIN32
+  const DWORD t0 = GetTickCount();
+#endif
 
-  /* Wait for hardware to idle. */
-  idle = 0;
-  timeout = 0;
-
-checkforidle:
-  do {
-    if(idle > 0) {
-      GDBG_INFO(80,"waiting for idle...\n");
-    }
+  while (streak < 3) {
     HWC_IO_LOAD(bInfo->regInfo, status, status);
     for(i = 1; i < bInfo->pciInfo.numChips; i++) {
       HWC_IO_LOAD_SLAVE(i, bInfo->regInfo, status, statusSlave);
       status |= statusSlave;
     }
     /* Make sure we see an idle 3 times in a row from all chips. */
-    if(status & SST_BUSY) {
-     idle = 0;
-    } else {
-     idle++;
-    }
-    timeout++;
-    /* Nothing the hardware does should take as long as reading the
-     * status registers a billion times... */
-    if(timeout >= 1000000000) {
-      break;
-    }        
-  } while(idle < 3);  
-
-  if(timeout >= 1000000000) {
-    GDBG_INFO(80,"Hardware timeout on idle, resetting...\n");
-    /* Reset FBI, 2D, and command streams. */
-    HWC_IO_LOAD(bInfo->regInfo, miscInit0, miscInit0);
-    /* Also be sure to make sure miscInit1's addressing is correct on Napalm */
-    HWC_IO_STORE(bInfo->regInfo, miscInit0, (miscInit0 & ~BIT(30)) | SST_GRX_RESET | SST_2D_RESET);
-    HWC_IO_LOAD(bInfo->regInfo, miscInit1, miscInit1);
-    HWC_IO_STORE(bInfo->regInfo, miscInit1, miscInit1 | SST_CMDSTREAM_RESET);
-
-    /* Give it a little time to propagate */
-    for(idle = 0; idle < 1000; idle++) {
-      HWC_IO_LOAD(bInfo->regInfo, status, status);    
-    }  
-    /* Let hardware out of reset */
-    HWC_IO_STORE(bInfo->regInfo, miscInit1, miscInit1);
-    HWC_IO_STORE(bInfo->regInfo, miscInit0, miscInit0);
-    
-    /* Give it a little time to propagate */
-    for(idle = 0; idle < 1000; idle++) {
-      HWC_IO_LOAD(bInfo->regInfo, status, status);    
-    }  
-
-    /* And make sure it's really idle... */
-    goto checkforidle;
+    if (status & SST_BUSY)
+      streak = 0;
+    else
+      streak++;
+    if (++polls >= HWC_IDLE_WAIT_POLLS)
+      return FXFALSE;
+#ifdef _WIN32
+    if ((polls & 0x3ff) == 0 && (GetTickCount() - t0) > HWC_IDLE_WAIT_MS)
+      return FXFALSE;
+#endif
   }
+  return FXTRUE;
+}
+
+FxBool hwcIdleHardwareWithTimeout(hwcBoardInfo *bInfo)
+{
+  FxU32 miscInit0, miscInit1, status, delay;
+
+  if (hwcWaitIdleBounded(bInfo))
+    return FXTRUE;
+
+  GDBG_INFO(80,"Hardware timeout on idle, resetting (master) once...\n");
+  /* Reset FBI, 2D, and command streams. */
+  HWC_IO_LOAD(bInfo->regInfo, miscInit0, miscInit0);
+  /* Also be sure to make sure miscInit1's addressing is correct on Napalm */
+  HWC_IO_STORE(bInfo->regInfo, miscInit0, (miscInit0 & ~BIT(30)) | SST_GRX_RESET | SST_2D_RESET);
+  HWC_IO_LOAD(bInfo->regInfo, miscInit1, miscInit1);
+  HWC_IO_STORE(bInfo->regInfo, miscInit1, miscInit1 | SST_CMDSTREAM_RESET);
+
+  /* Give it a little time to propagate */
+  for(delay = 0; delay < 1000; delay++) {
+    HWC_IO_LOAD(bInfo->regInfo, status, status);
+  }
+  /* Let hardware out of reset */
+  HWC_IO_STORE(bInfo->regInfo, miscInit1, miscInit1);
+  HWC_IO_STORE(bInfo->regInfo, miscInit0, miscInit0);
+
+  /* Give it a little time to propagate */
+  for(delay = 0; delay < 1000; delay++) {
+    HWC_IO_LOAD(bInfo->regInfo, status, status);
+  }
+
+  /* And make sure it's really idle - once, bounded, then report. */
+  return hwcWaitIdleBounded(bInfo);
 }
             
 FxBool
@@ -2632,7 +2776,11 @@ hwcInitFifo(hwcBoardInfo *bInfo, FxBool enableHoleCounting)
     return FXFALSE;
   }
 
-  hwcIdleHardwareWithTimeout(bInfo);
+  if (!hwcIdleHardwareWithTimeout(bInfo)) {
+    /* [retro3dfx] fail the open cleanly rather than program a busy board */
+    sprintf(errorString, "%s:  hardware did not go idle (after one reset)\n", FN_NAME);
+    return FXFALSE;
+  }
 
   /* disable the CMD fifo */
   HWC_CAGP_STORE(bInfo->regInfo, cmdFifo0.baseSize, 0);
@@ -5437,12 +5585,17 @@ hwcRestoreVideo(hwcBoardInfo *bInfo)
 {
 #define FN_NAME "hwcRestoreVideo"
 
-  #if 1
-  hwcIdleHardwareWithTimeout(bInfo);
+  /* [retro3dfx] If the board never went idle, do not program it any further
+   * (register writes and the SLI/AA teardown escape both drive a stuck chip,
+   * and the escape reprograms it from the kernel) - but ALWAYS release
+   * exclusive mode and restore the desktop below. */
+  if (!hwcIdleHardwareWithTimeout(bInfo)) {
+    GDBG_INFO(80, FN_NAME ": hardware not idle - skipping register restore, releasing exclusive\n");
+    goto hwcRestoreVideo_release;
+  }
 
   /* disable the CMD fifo */
   HWC_CAGP_STORE(bInfo->regInfo, cmdFifo0.baseSize, 0);
-  #endif
 
   /* reset pci registers */
 #ifdef FX_GLIDE_NAPALM
@@ -5731,6 +5884,7 @@ hwcRestoreVideo(hwcBoardInfo *bInfo)
 
 #endif /* FX_GLIDE_NAPALM */
 
+hwcRestoreVideo_release:
 #ifdef HWC_EXT_INIT
   {
   FxI32 status;

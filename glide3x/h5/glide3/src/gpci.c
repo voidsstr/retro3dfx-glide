@@ -1097,12 +1097,18 @@ _grSstDetectResources(void)
       else 
         SST.type = GR_SSTTYPE_Voodoo3;
 
+      /* [retro3dfx] If the callback RETURNS (an ICD or app may install one
+       * that does), the original fell straight through into hwcInitRegisters
+       * and did MMIO through the mapping it had just refused. Skip the board
+       * instead: no board found is an honest failure, a fault is not. */
       if (!hwcMapBoard(bInfo, HWC_BASE_ADDR_MASK)) {
         GrErrorCallback(hwcGetErrorString(), FXTRUE);
+        continue;
       }
 
       if (!hwcInitRegisters(bInfo)) {
         GrErrorCallback(hwcGetErrorString(), FXTRUE);
+        continue;
       }
 
       /* NB: We cannot fail to map this board after this point */
