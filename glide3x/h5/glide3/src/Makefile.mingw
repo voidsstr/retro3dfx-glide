@@ -22,6 +22,8 @@
 #			default = -O2 -ffast-math -mtune=pentium
 #	DEBUG=1		enable debugging checks and messages
 #			default = no
+#	FXGASM_CROSS=1	generate fxgasm.h/fxinline.h with the target compiler
+#			(required for USE_X86=1 when the build host is 64-bit)
 #	USE_X86=1	use assembler triangle specializations!
 #			default = no
 #	USE_3DNOW=1	allow 3DNow! specializations. However, the true CPU
@@ -365,11 +367,20 @@ xdrawtri.o: xdrawtri.asm
 
 $(GLIDE_OBJECTS): fxinline.h fxgasm.h fxbldno.h
 
+# [retro3dfx] FXGASM_CROSS=1: derive the offsets from the TARGET compiler
+# instead of running fxgasm.exe on the build host. A 64-bit Linux host builds
+# a 64-bit fxgasm and every GC offset the asm triangle setup reads is wrong
+# (see fxgasm_cross.sh). Required for USE_X86=1 on any 64-bit host.
+ifeq ($(FXGASM_CROSS),1)
+fxinline.h fxgasm.h &: fxgasm.c fxgasm_cross.sh
+	sh fxgasm_cross.sh "$(CC)" "$(CFLAGS)"
+else
 fxinline.h: fxgasm.exe
 	./$< -inline > $@
 
 fxgasm.h: fxgasm.exe
 	./$< -hex > $@
+endif
 
 fxgasm.exe: fxgasm.c
 	$(HOST_CC) -o $@ $(HOST_CFLAGS) $<
