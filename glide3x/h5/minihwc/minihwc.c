@@ -763,6 +763,7 @@
 #endif
 
 #include <windows.h>
+#include <stdarg.h>
 #include <malloc.h>
 
 #include <ddraw.h>
@@ -1851,6 +1852,24 @@ hwcInit(FxU32 vID, FxU32 dID)
 #undef FN_NAME
 } /* hwcInit */
 
+
+/* [retro3dfx] one line to the opt-in RETRO_GLIDE_MAPLOG file (see hwcLogMappings) */
+static void
+hwcLogLine(const char *fmt, ...)
+{
+  const char *path = getenv("RETRO_GLIDE_MAPLOG");
+  FILE *f;
+  va_list ap;
+  if (!path || !*path)
+    return;
+  f = fopen(path, "a");
+  if (!f)
+    return;
+  va_start(ap, fmt);
+  vfprintf(f, fmt, ap);
+  va_end(ap);
+  fclose(f);
+}
 
 /* [retro3dfx] Opt-in mapping log (RETRO_GLIDE_MAPLOG=<file>, process
  * environment only). The display driver keys Glide's per-process state on the
@@ -4963,6 +4982,19 @@ hwcInitVideo(hwcBoardInfo *bInfo, FxBool tiled, FxVideoTimingInfo *vidTiming,
                 sizeof(ctxRes), (LPSTR) &ctxRes);
       GDBG_INFO(80, FN_NAME ": HWC_MINIVDD_HACK: ExtEscape retVal=%d resStatus=%d\n",
                 retVal, ctxRes.resStatus);
+      /* [retro3dfx] measure what a working request returns on this card before
+       * any rule is written that refuses one (RETRO_GLIDE_MAPLOG, opt-in) */
+      hwcLogLine("SLI_AA_REQUEST(open) retVal=%ld resStatus=%ld chips=%lu realChips=%lu "
+                 "sliEn=%lu aaEn=%lu nlines=%lu analog=%lu aaSampleHigh=%lu bpp=%lu\n",
+                 (long) retVal, (long) ctxRes.resStatus,
+                 (unsigned long) ctxReq.optData.sliAAReq.ChipInfo.dwChips,
+                 (unsigned long) bInfo->pciInfo.realNumChips,
+                 (unsigned long) ctxReq.optData.sliAAReq.ChipInfo.dwsliEn,
+                 (unsigned long) ctxReq.optData.sliAAReq.ChipInfo.dwaaEn,
+                 (unsigned long) ctxReq.optData.sliAAReq.ChipInfo.dwsli_nlines,
+                 (unsigned long) ctxReq.optData.sliAAReq.ChipInfo.dwsliAaAnalog,
+                 (unsigned long) ctxReq.optData.sliAAReq.ChipInfo.dwaaSampleHigh,
+                 (unsigned long) ctxReq.optData.sliAAReq.MemInfo.dwBpp);
 
       /* the w2k miniport doesn't copy this value to the slave chips */
       /* so for now re-write it here */

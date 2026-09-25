@@ -2754,8 +2754,22 @@ GR_ENTRY(grBufferSwap, void, (FxU32 swapInterval))
     if (swapInterval > 1) 
       swapInterval = ((swapInterval - 1) << 1) | 1; /* Format for hw */
   }
-  while(_grBufferNumPending() > _GlideRoot.environment.swapPendingCount)
-   ;
+  /* [retro3dfx G3b] bounded, as makeRoom and grSstIdle are (G3). A command
+   * processor that stops retiring swaps (a wedged chip, or slaves never put
+   * into SLI) left this spinning forever in exclusive fullscreen. */
+  {
+    FxU32 swapSpins = 0;
+    while(_grBufferNumPending() > _GlideRoot.environment.swapPendingCount) {
+      if (++swapSpins > 4000000UL) {
+        FxI32 k;
+        GDBG_INFO(0, "retro3dfx: swap-pending WEDGE-BREAK\n");
+        for (k = 0; k < MAX_BUFF_PENDING; k++)
+          gc->bufferSwaps[k] = 0xffffffff;
+        gc->swapsPending = 0;
+        break;
+      }
+    }
+  }
   
 #ifndef HAL_CSIM
   /* Cycle the buffer indices */
@@ -2963,8 +2977,18 @@ GR_ENTRY(grDRIBufferSwap, void, (FxU32 swapInterval))
     if (swapInterval > 1) 
       swapInterval = ((swapInterval - 1) << 1) | 1; /* Format for hw */
   }
-  while(_grBufferNumPending() > 3)
-   ;
+  {
+    FxU32 swapSpins = 0;   /* [retro3dfx G3b] bounded - see grBufferSwap */
+    while(_grBufferNumPending() > 3) {
+      if (++swapSpins > 4000000UL) {
+        FxI32 k;
+        for (k = 0; k < MAX_BUFF_PENDING; k++)
+          gc->bufferSwaps[k] = 0xffffffff;
+        gc->swapsPending = 0;
+        break;
+      }
+    }
+  }
 
 #if USE_PACKET_FIFO
   {
@@ -3093,6 +3117,8 @@ _grBufferNumPending(void)
     i;
   int
     pend;                       /* Num Swaps pending */
+  int
+    stableTries;                /* [retro3dfx] bounds the read-until-stable loops */
 #if CHECK_SLAVE_SWAPCMD
   FxU32 chip ;
 #endif
@@ -3107,6 +3133,7 @@ _grBufferNumPending(void)
     GR_BUMP_N_GRIND;
 
   /* HACK HACK HACK */
+  stableTries = 0;
   do {
     readPtr0 = GET(gc->cRegs->cmdFifo0.readPtrL) ;
     dummy = _grSstStatus();
@@ -3124,11 +3151,12 @@ _grBufferNumPending(void)
         readPtr1 = ((readPtr1 < GET(gc->slaveCRegs[chip]->cmdFifo0.readPtrL))
                     ? readPtr1 : GET(gc->slaveCRegs[chip]->cmdFifo0.readPtrL)) ;
 #endif
-  } while (readPtr0 != readPtr1);
+  } while (readPtr0 != readPtr1 && ++stableTries < 1000); /* [retro3dfx] bounded */
 
   readPtr = readPtr1 - gc->cmdTransportInfo.fifoOffset;
 
   if (readPtr == gc->lastSwapCheck) {
+    stableTries = 0;
     do {
       depth0 = GET(gc->cRegs->cmdFifo0.depth);
       depth1 = GET(gc->cRegs->cmdFifo0.depth);
@@ -3142,10 +3170,10 @@ _grBufferNumPending(void)
           depth1 = ((depth1 < GET(gc->slaveCRegs[chip]->cmdFifo0.depth))
                     ? depth1 : GET(gc->slaveCRegs[chip]->cmdFifo0.depth)) ;
 #endif
-    } while (depth0 != depth1);
+    } while (depth0 != depth1 && ++stableTries < 2000); /* [retro3dfx] bounded */
 
     if (depth1 == 0) {
-      for(i = MAX_BUFF_PENDING; i >= 0; --i)
+      for(i = MAX_BUFF_PENDING - 1; i >= 0; --i) /* [retro3dfx] was MAX_BUFF_PENDING: bufferSwaps[7] is one past the end */
         gc->bufferSwaps[i] = 0xffffffff;
       gc->swapsPending = 0;
       goto NPDONE;
@@ -3157,7 +3185,7 @@ _grBufferNumPending(void)
   **  behind us, and one where it's ahead of us.
   */
   if (readPtr < gc->lastSwapCheck) { /* We've wrapped */
-    for(i = MAX_BUFF_PENDING; i >= 0; --i) {
+    for(i = MAX_BUFF_PENDING - 1; i >= 0; --i) /* [retro3dfx] was MAX_BUFF_PENDING: bufferSwaps[7] is one past the end */ {
       /* If it's between the last check and the end of the FIFO or between the
        beginning of the FIFO and the current Read pointer, then it's gone
        */
@@ -3169,7 +3197,7 @@ _grBufferNumPending(void)
       }
     }
   } else {                      /* It's behind us */
-    for(i = MAX_BUFF_PENDING; i >= 0; --i) {
+    for(i = MAX_BUFF_PENDING - 1; i >= 0; --i) /* [retro3dfx] was MAX_BUFF_PENDING: bufferSwaps[7] is one past the end */ {
       if(gc->bufferSwaps[i] != 0xffffffff) {
         if((gc->bufferSwaps[i] >= gc->lastSwapCheck) && (gc->bufferSwaps[i] <= readPtr)) {
           --gc->swapsPending;
