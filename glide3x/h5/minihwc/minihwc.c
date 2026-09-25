@@ -1985,6 +1985,7 @@ refuse:
             "hwcMapBoard: the display driver returned a board mapping that is not live (%s). "
             "Most likely a stale Glide slot left by a force-killed process whose PID this "
             "process reused; a reboot clears it.\n", why);
+  hwcLogLine("REFUSED pid=%lu %s\n", (unsigned long) GetCurrentProcessId(), why);
   return FXFALSE;
 }
 
@@ -9290,14 +9291,27 @@ hwcUnmapMemory()
   {
     for(i=0;i<hInfo.nBoards;i++) {
       if (hInfo.boardInfo[i].isMapped) {
+        int unmapRet;
         ctxReq.which = HWCEXT_UNMAP_MEMORY;
         //ctxReq.optData.unmapMemoryReq.procHandle = (ULONG)GetCurrentProcessId();
-        ctxReq.optData.unmapMemoryReq.procHandle = hInfo.boardInfo[i].contextHandle;
+        /* [retro3dfx] contextHandle is only set by hwcShareContextData, i.e.
+         * at board OPEN. A process that mapped the board in grGlideInit and
+         * exited without opening a window sent handle 0 here, and the driver -
+         * which filed the mapping under procHandle (the PID, GETLINEARADDR)
+         * - kept the slot for the next process to reuse that PID. Fall back
+         * to the handle the mapping was registered under. */
+        ctxReq.optData.unmapMemoryReq.procHandle = hInfo.boardInfo[i].contextHandle
+          ? hInfo.boardInfo[i].contextHandle : hInfo.boardInfo[i].procHandle;
         
         GDBG_INFO(80, "hwcUnmapMemory:  Calling ExtEscape(HWCEXT_UNMAP_MEMORY)\n");  
-        ExtEscape((HDC)hInfo.boardInfo[i].hdc, HWCEXT_ESCAPE(i), /**/
+        unmapRet = ExtEscape((HDC)hInfo.boardInfo[i].hdc, HWCEXT_ESCAPE(i), /**/
                   sizeof(ctxReq), (LPSTR) &ctxReq,
                   sizeof(ctxRes), (LPSTR) &ctxRes);
+        hwcLogLine("UNMAP pid=%lu board=%lu handle=%lu (context %lu, proc %lu) retVal=%d\n",
+                   (unsigned long) GetCurrentProcessId(), (unsigned long) i,
+                   (unsigned long) ctxReq.optData.unmapMemoryReq.procHandle,
+                   (unsigned long) hInfo.boardInfo[i].contextHandle,
+                   (unsigned long) hInfo.boardInfo[i].procHandle, unmapRet);
         
         hInfo.boardInfo[i].isMapped = FXFALSE;
       }
@@ -9312,19 +9326,28 @@ hwcUnmapMemory9x(hwcBoardInfo *bInfo)
   hwcExtRequest_t ctxReq;
   hwcExtResult_t  ctxRes;
 
+  int unmapRet;
   /* don't do anything if it's already unmapped */
   if (!bInfo->isMapped) return;
 
   ctxReq.which = HWCEXT_UNMAP_MEMORY;
-  ctxReq.optData.unmapMemoryReq.procHandle = bInfo->contextHandle;
+  /* [retro3dfx] as hwcUnmapMemory: contextHandle is 0 until board open, and
+   * the driver filed the mapping under procHandle (the PID). This is the
+   * path grSstWinClose takes for a non-OpenGL app - and our ICD is one. */
+  ctxReq.optData.unmapMemoryReq.procHandle = bInfo->contextHandle
+    ? bInfo->contextHandle : bInfo->procHandle;
 
   /* Assure that we free up the node by passing the known Process ID that
      was used to open the context
   */
         
-  ExtEscape((HDC)bInfo->hdc, HWCEXT_ESCAPE(bInfo->boardNum), 
+  unmapRet = ExtEscape((HDC)bInfo->hdc, HWCEXT_ESCAPE(bInfo->boardNum), 
             sizeof(ctxReq), (LPSTR) &ctxReq,
             sizeof(ctxRes), (LPSTR) &ctxRes);
+  hwcLogLine("UNMAP9x pid=%lu board=%lu handle=%lu (context %lu, proc %lu) retVal=%d\n",
+             (unsigned long) GetCurrentProcessId(), (unsigned long) bInfo->boardNum,
+             (unsigned long) ctxReq.optData.unmapMemoryReq.procHandle,
+             (unsigned long) bInfo->contextHandle, (unsigned long) bInfo->procHandle, unmapRet);
   
   bInfo->isMapped = FXFALSE;
   /* Catch dumb bugs.  Nuke all linear register pointers. */

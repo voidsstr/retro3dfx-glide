@@ -216,7 +216,15 @@ _grErrorDefaultCallback( const char *s, FxBool fatal )
     grGlideShutdown();
 
 #ifdef __WIN32__
-    MessageBox(NULL, s, NULL, MB_OK);
+    { /* [retro3dfx] keep the text where a runner can read it (opt-in), and put
+       * the box in FRONT: with hWnd NULL it opened behind the game's
+       * fullscreen window, and the process looked hung (V5 6000, 2026-09-25). */
+      const char *lp = getenv("RETRO_GLIDE_MAPLOG");
+      FILE *lf = (lp && *lp) ? fopen(lp, "a") : NULL;
+      if (lf) { fprintf(lf, "pid=%lu GLIDE FATAL: %s\n", (unsigned long) GetCurrentProcessId(), s); fclose(lf); }
+      OutputDebugStringA(s);
+    }
+    MessageBox(NULL, s, "Glide", MB_OK | MB_ICONERROR | MB_TOPMOST | MB_SETFOREGROUND);
     exit(1);
 #elif (GLIDE_PLATFORM & GLIDE_OS_MACOS)
     {

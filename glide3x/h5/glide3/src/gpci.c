@@ -1302,7 +1302,16 @@ _GlideInitEnvironment(void)
 #endif
 
   /* dBorca - play safe */
-  grErrorSetCallback(_grErrorDefaultCallback);
+  /* [retro3dfx] ...but keep a callback the caller installed BEFORE
+   * grGlideInit. The default reports a fatal init error with
+   * MessageBox(NULL, ...) + exit(1); behind a game's fullscreen window nobody
+   * can see or dismiss that box, and the game waits forever. That was the
+   * intermittent Quake III "hang in grGlideInit" on the V5 6000 (ntsd,
+   * 2026-09-25: USER32!MessageBoxA <- _grErrorDefaultCallback, the text in
+   * minihwc's errorString). Our ICD installs a logging callback first and
+   * then fails the context cleanly instead. */
+  if (!GrErrorCallback)
+    grErrorSetCallback(_grErrorDefaultCallback);
 
 #if GL_X86
   /* Get CPU Info before we detect glide devices */
